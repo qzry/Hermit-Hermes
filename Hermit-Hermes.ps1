@@ -3,7 +3,7 @@ Hermit-Hermes：Hermes Desktop 便携构建与更新工具（安装/更新一体
 
 作者：轻舟入屿
 联系方式：onewit@qq.com
-版本：v1.0.1
+版本：v1.0.2
 
 常规使用：
   .\Hermit-Hermes.ps1
@@ -126,7 +126,7 @@ try {
     $script:SourceRepo = 'https://github.com/NousResearch/hermes-agent.git'
     $script:GitHubHeaders = @{ 'User-Agent' = 'Hermes-Builder' }
     # 脚本自更新：发布在 GitHub Releases（Hermit-Hermes.ps1，SHA-256 取自官方 digest）
-    $script:ScriptVersion = 'v1.0.1'
+    $script:ScriptVersion = 'v1.0.2'
     $script:RepoOwner = 'qzry'
     $script:RepoName = 'Hermit-Hermes'
     $script:LogFile = $null
@@ -1581,8 +1581,10 @@ function Install-AgentRuntime {
     $rootPkg = Join-Path $Source 'package.json'
     if (Test-Path -LiteralPath $rootPkg) {
         $pkg = [System.IO.File]::ReadAllText($rootPkg, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
-        if ($pkg.dependencies -and $pkg.dependencies.'agent-browser') {
-            $agentBrowserSpec = 'agent-browser@' + [string]$pkg.dependencies.'agent-browser'
+        $depsProp = $pkg.PSObject.Properties['dependencies']
+        $pkgDeps = if ($depsProp) { $depsProp.Value } else { $null }
+        if ($pkgDeps -and $pkgDeps.PSObject.Properties['agent-browser']) {
+            $agentBrowserSpec = 'agent-browser@' + [string]$pkgDeps.'agent-browser'
         }
     }
     $camofoxSpec = Get-RequiredCamofoxSpec -Source $Source
