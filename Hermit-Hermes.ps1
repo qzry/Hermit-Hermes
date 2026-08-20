@@ -1417,6 +1417,7 @@ function Get-PortableEnvironment {
         (Join-Path $Runtime 'git\cmd'),
         (Join-Path $Runtime 'git\bin'),
         (Join-Path $systemRoot 'System32'),
+        (Join-Path $systemRoot 'System32\WindowsPowerShell\v1.0'),
         $systemRoot
     )
     return @{
@@ -1645,7 +1646,7 @@ process.env.ELECTRON_CACHE = __hroot + "/cache/electron";
 process.env.ELECTRON_BUILDER_CACHE = __hroot + "/cache/electron-builder";
 process.env.TEMP = __hroot + "/cache/tmp";
 process.env.TMP = __hroot + "/cache/tmp";
-process.env.PATH = __hroot + "/tools/ripgrep;" + __hroot + "/tools/ffmpeg;" + __hrun + "/agent/venv/Scripts;" + __hrun + "/uv/bin;" + __hrun + "/node;" + __hrun + "/node/node_modules/.bin;" + __hrun + "/git/cmd;" + __hrun + "/git/bin;" + (process.env.SystemRoot || "") + "/System32;" + (process.env.SystemRoot || "");
+process.env.PATH = __hroot + "/tools/ripgrep;" + __hroot + "/tools/ffmpeg;" + __hrun + "/agent/venv/Scripts;" + __hrun + "/uv/bin;" + __hrun + "/node;" + __hrun + "/node/node_modules/.bin;" + __hrun + "/git/cmd;" + __hrun + "/git/bin;" + (process.env.SystemRoot || "") + "/System32;" + (process.env.SystemRoot || "") + "/System32/WindowsPowerShell/v1.0;" + (process.env.SystemRoot || "");
 // venv 自修复已内联：Hermes 目录移动后，venv 内部（pyvenv.cfg 等）的绝对路径仍指向旧位置
 // 检测到不一致时直接在本进程内重定位；修复失败则阻止启动，避免坏环境继续运行
 
