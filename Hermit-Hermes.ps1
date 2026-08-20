@@ -3,7 +3,7 @@ Hermit-Hermes：Hermes Desktop 便携构建与更新工具（安装/更新一体
 
 作者：轻舟入屿
 联系方式：onewit@qq.com
-版本：v1.0.2
+版本：v1.0.3
 
 常规使用：
   .\Hermit-Hermes.ps1
@@ -126,7 +126,7 @@ try {
     $script:SourceRepo = 'https://github.com/NousResearch/hermes-agent.git'
     $script:GitHubHeaders = @{ 'User-Agent' = 'Hermes-Builder' }
     # 脚本自更新：发布在 GitHub Releases（Hermit-Hermes.ps1，SHA-256 取自官方 digest）
-    $script:ScriptVersion = 'v1.0.2'
+    $script:ScriptVersion = 'v1.0.3'
     $script:RepoOwner = 'qzry'
     $script:RepoName = 'Hermit-Hermes'
     $script:LogFile = $null
@@ -1850,6 +1850,19 @@ function Build-Desktop {
     return $built
 }
 
+function Test-ComponentCopy {
+    # 判断给定目录是否为 runtime 组件的完整副本（被解引用的旧链接）：
+    # 通过各组件独有的标志文件识别，避免误删真正的用户数据
+    param([string]$Name, [string]$Path)
+    switch ($Name) {
+        'git' { return (Test-Path -LiteralPath (Join-Path $Path 'git-bash.exe')) -or (Test-Path -LiteralPath (Join-Path $Path 'cmd\git.exe')) }
+        'node' { return Test-Path -LiteralPath (Join-Path $Path 'node.exe') }
+        'bin' { return Test-Path -LiteralPath (Join-Path $Path 'uv.exe') }
+        'hermes-agent' { return Test-Path -LiteralPath (Join-Path $Path 'venv\Scripts\python.exe') }
+        default { return $false }
+    }
+}
+
 function Ensure-CompatibilityLinks {
     # 重建 data\ 下指向 runtime 组件的目录联接（junction）
     $data = Join-Path $script:HermesDir 'data'
@@ -1862,20 +1875,34 @@ function Ensure-CompatibilityLinks {
     }
     foreach ($name in $targets.Keys) {
         $link = Join-Path $data $name
+        $targetPath = $targets[$name]
         if (Test-Path -LiteralPath $link) {
             $item = Get-Item -LiteralPath $link -Force
-            if (-not $item.LinkType) { throw "Compatibility path already exists and is not an internal link: $link" }
+            if (-not $item.LinkType) {
+                # 目录迁移时链接可能被解引用成组件副本：内容与 runtime 组件一致时自动重建，
+                # 否则（可能是用户数据）保持拦截，避免误删
+                if ((Test-Path -LiteralPath $targetPath) -and (Test-ComponentCopy -Name $name -Path $link)) {
+                    Write-BuildLog "Removing dereferenced component copy: $link" 'WARN' 'fs'
+                    Remove-Item -LiteralPath $link -Recurse -Force
+                    New-Item -ItemType Junction -Path $link -Target $targetPath | Out-Null
+                    Write-BuildLog "Rebuilt link: $link -> $targetPath" 'INFO' 'fs'
+                }
+                else {
+                    throw "Compatibility path already exists and is not an internal link: $link"
+                }
+                continue
+            }
             # 布局变化（去掉 current 层）后旧联接目标可能失效：目标不一致时重建
             $currentTarget = if ($item.Target -is [array]) { ($item.Target -join '') } else { [string]$item.Target }
-            if (-not [string]::Equals($currentTarget, $targets[$name], [System.StringComparison]::OrdinalIgnoreCase)) {
+            if (-not [string]::Equals($currentTarget, $targetPath, [System.StringComparison]::OrdinalIgnoreCase)) {
                 Remove-Item -LiteralPath $link -Force
-                New-Item -ItemType Junction -Path $link -Target $targets[$name] | Out-Null
-                Write-BuildLog "Rebuilt link: $link -> $($targets[$name])" 'INFO' 'fs'
+                New-Item -ItemType Junction -Path $link -Target $targetPath | Out-Null
+                Write-BuildLog "Rebuilt link: $link -> $targetPath" 'INFO' 'fs'
             }
             continue
         }
-        New-Item -ItemType Junction -Path $link -Target $targets[$name] | Out-Null
-        Write-BuildLog "Created link: $link -> $($targets[$name])" 'INFO' 'fs'
+        New-Item -ItemType Junction -Path $link -Target $targetPath | Out-Null
+        Write-BuildLog "Created link: $link -> $targetPath" 'INFO' 'fs'
     }
 }
 
